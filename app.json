@@ -42,7 +42,7 @@
       }
     },
     "updates": {
-      "url": "https://raw.githubusercontent.com/NinjaBeameR/HulimaneLabourManagement/main/ota",
+      "url": "https://raw.githubusercontent.com/NinjaBeameR/HulimaneLabourManagement/main/ota?v=2",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 30000
