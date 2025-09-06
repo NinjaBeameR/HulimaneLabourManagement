@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "exclude": ["app.json", "app.config.js"],
+      "message": "Never modify Expo config files unless explicitly asked."
+    },
+    {
+      "pattern": "update",
+      "message": "Do not disable OTA updates or rewrite update logic unless explicitly asked. Only touch the requested function."
+    },
+    {
+      "message": "Before writing code, explain possible root causes and get user approval first."
+    },
+    {
+      "message": "Keep changes minimal, reliable, and backward compatible. No experimental features."
+    }
+  ]
+}
