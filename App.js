@@ -1,10 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { View, StatusBar, ScrollView, StyleSheet } from 'react-native';
+import { View, StatusBar, ScrollView, StyleSheet, AppState } from 'react-native';
 import { PaperProvider, Dialog, Button, Paragraph, Portal, Surface, Text, Chip, Divider } from 'react-native-paper';
 import * as Updates from 'expo-updates';
 import AppNavigator from "./src/navigation/AppNavigator";
-import { GlobalStoreProvider } from "./src/utils/GlobalStore";
+import { GlobalStoreProvider, useGlobalStore } from "./src/utils/GlobalStore";
 import WhatsNewManager from "./src/utils/whatsNew";
+import AutoBackupManager from "./src/utils/autoBackupManager";
 
 export default function App() {
   const [whatsNewVisible, setWhatsNewVisible] = useState(false);
@@ -82,6 +83,7 @@ export default function App() {
 
   return (
     <GlobalStoreProvider>
+      <AutoBackupComponent />
       <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
         <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
         <PaperProvider>
@@ -97,6 +99,62 @@ export default function App() {
       </View>
     </GlobalStoreProvider>
   );
+}
+
+// Auto-backup component that runs inside GlobalStoreProvider
+function AutoBackupComponent() {
+  const { state } = useGlobalStore();
+  
+  useEffect(() => {
+    // GitHub token is now loaded from environment variable (.env file)
+    // No manual token setting needed
+    
+    let autoBackupInterval;
+    
+    const startAutoBackup = () => {
+      // Clear any existing interval
+      if (autoBackupInterval) {
+        clearInterval(autoBackupInterval);
+      }
+      
+      // Set up 3-minute interval for auto-backup
+      autoBackupInterval = setInterval(async () => {
+        try {
+          const shouldBackup = await AutoBackupManager.shouldBackup(state);
+          
+          if (shouldBackup.should) {
+            console.log('Performing auto-backup...');
+            const result = await AutoBackupManager.performBackup(state);
+            
+            if (result.success) {
+              console.log('✅ Auto-backup successful:', result.message);
+            } else {
+              console.log('❌ Auto-backup failed:', result.message);
+            }
+          } else {
+            console.log('Auto-backup skipped:', shouldBackup.reason);
+          }
+        } catch (error) {
+          console.log('Auto-backup error:', error);
+        }
+      }, AutoBackupManager.BACKUP_INTERVAL);
+      
+      console.log('Auto-backup timer started (3-minute intervals)');
+    };
+    
+    // Start the auto-backup timer
+    startAutoBackup();
+    
+    // Cleanup on unmount
+    return () => {
+      if (autoBackupInterval) {
+        clearInterval(autoBackupInterval);
+        console.log('Auto-backup timer stopped');
+      }
+    };
+  }, [state]);
+  
+  return null; // This component doesn't render anything
 }
 function WhatsNewDialog({ visible, data, onDismissThisVersion, onRemindLater }) {
   const getCategoryColor = (category) => {

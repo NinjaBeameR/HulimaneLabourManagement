@@ -22,6 +22,7 @@ import {
 } from 'react-native-paper';
 import { useGlobalStore } from '../utils/GlobalStore';
 import BackupRestoreManager from '../utils/backupRestore';
+import AutoBackupManager from '../utils/autoBackupManager';
 import { format, parseISO } from 'date-fns';
 
 export default function BackupRestoreScreen({ navigation }) {
@@ -35,9 +36,19 @@ export default function BackupRestoreScreen({ navigation }) {
   const [restoreData, setRestoreData] = useState(null);
   const [manualInputVisible, setManualInputVisible] = useState(false);
   const [manualBackupText, setManualBackupText] = useState('');
+  
+  // Auto-backup state
+  const [autoBackupStatus, setAutoBackupStatus] = useState({
+    enabled: false,
+    lastBackup: null,
+    retryCount: 0,
+    lastError: null,
+    hasToken: false
+  });
 
   useEffect(() => {
     loadBackupHistory();
+    loadAutoBackupStatus();
   }, []);
 
   const loadBackupHistory = async () => {
@@ -46,6 +57,15 @@ export default function BackupRestoreScreen({ navigation }) {
       setBackupHistory(history);
     } catch (error) {
       console.error('Failed to load backup history:', error);
+    }
+  };
+
+  const loadAutoBackupStatus = async () => {
+    try {
+      const status = await AutoBackupManager.getStatus();
+      setAutoBackupStatus(status);
+    } catch (error) {
+      console.error('Failed to load auto-backup status:', error);
     }
   };
 
@@ -200,6 +220,79 @@ export default function BackupRestoreScreen({ navigation }) {
       setSnackbar({
         visible: true,
         message: `Manual import failed: ${error.message}`,
+        type: 'error'
+      });
+    }
+    setLoading(false);
+  };
+
+  // Auto-backup handlers
+  const handleToggleAutoBackup = async () => {
+    try {
+      const newEnabled = !autoBackupStatus.enabled;
+      await AutoBackupManager.setEnabled(newEnabled);
+      
+      setAutoBackupStatus(prev => ({ ...prev, enabled: newEnabled }));
+      
+      setSnackbar({
+        visible: true,
+        message: newEnabled ? 'Auto-backup enabled' : 'Auto-backup disabled',
+        type: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        visible: true,
+        message: `Failed to toggle auto-backup: ${error.message}`,
+        type: 'error'
+      });
+    }
+  };
+
+  const handleManualAutoBackup = async () => {
+    setLoading(true);
+    try {
+      const result = await AutoBackupManager.performBackup(state);
+      
+      if (result.success) {
+        setSnackbar({
+          visible: true,
+          message: result.message,
+          type: 'success'
+        });
+        
+        // Refresh auto-backup status
+        await loadAutoBackupStatus();
+      } else {
+        setSnackbar({
+          visible: true,
+          message: result.message,
+          type: 'error'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        visible: true,
+        message: `Manual backup failed: ${error.message}`,
+        type: 'error'
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleTestGitHubConnection = async () => {
+    setLoading(true);
+    try {
+      const result = await AutoBackupManager.testConnection();
+      
+      setSnackbar({
+        visible: true,
+        message: result.success ? result.message : result.error,
+        type: result.success ? 'success' : 'error'
+      });
+    } catch (error) {
+      setSnackbar({
+        visible: true,
+        message: `Connection test failed: ${error.message}`,
         type: 'error'
       });
     }
@@ -388,6 +481,75 @@ export default function BackupRestoreScreen({ navigation }) {
             </Text>
             
             <View style={styles.actionButtons}>
+              {/* Auto-Backup Section */}
+              <Text style={styles.sectionSubtitle}>🔄 Auto-Backup to GitHub</Text>
+              
+              <View style={styles.autoBackupContainer}>
+                <View style={styles.autoBackupHeader}>
+                  <Text style={styles.autoBackupTitle}>
+                    Auto-backup {autoBackupStatus.enabled ? 'ON' : 'OFF'}
+                  </Text>
+                  <Button
+                    mode={autoBackupStatus.enabled ? "outlined" : "contained"}
+                    onPress={handleToggleAutoBackup}
+                    disabled={loading}
+                    compact
+                    style={styles.toggleButton}
+                  >
+                    {autoBackupStatus.enabled ? 'Disable' : 'Enable'}
+                  </Button>
+                </View>
+                
+                {autoBackupStatus.enabled && (
+                  <View style={styles.autoBackupStatus}>
+                    <Text style={styles.statusText}>
+                      📍 Frequency: Every 3 minutes when data changes
+                    </Text>
+                    {autoBackupStatus.lastBackup && (
+                      <Text style={styles.statusText}>
+                        🕒 Last backup: {autoBackupStatus.lastBackup.toLocaleString()}
+                      </Text>
+                    )}
+                    {autoBackupStatus.retryCount > 0 && (
+                      <Text style={[styles.statusText, { color: '#f44336' }]}>
+                        ⚠️ Retries: {autoBackupStatus.retryCount}/{AutoBackupManager.MAX_RETRIES}
+                      </Text>
+                    )}
+                    {autoBackupStatus.lastError && (
+                      <Text style={[styles.statusText, { color: '#f44336' }]}>
+                        ❌ Last error: {autoBackupStatus.lastError}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                
+                <View style={styles.autoBackupActions}>
+                  <Button
+                    mode="outlined"
+                    onPress={handleManualAutoBackup}
+                    disabled={loading || !autoBackupStatus.hasToken}
+                    icon="backup-restore"
+                    style={styles.actionButton}
+                    contentStyle={styles.buttonContent}
+                  >
+                    Backup Now
+                  </Button>
+                  
+                  <Button
+                    mode="text"
+                    onPress={handleTestGitHubConnection}
+                    disabled={loading}
+                    icon="cloud-check"
+                    style={styles.actionButton}
+                    contentStyle={styles.buttonContent}
+                  >
+                    Test Connection
+                  </Button>
+                </View>
+              </View>
+              
+              <Divider style={{ marginVertical: 16 }} />
+              
               {/* Export Section */}
               <Text style={styles.sectionSubtitle}>Export Options</Text>
               
@@ -820,5 +982,40 @@ const styles = StyleSheet.create({
     color: '#dc3545',
     marginTop: 12,
     fontStyle: 'italic',
+  },
+  // Auto-backup styles
+  autoBackupContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  autoBackupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  autoBackupTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+  },
+  toggleButton: {
+    borderRadius: 20,
+  },
+  autoBackupStatus: {
+    marginBottom: 12,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#495057',
+    marginBottom: 4,
+  },
+  autoBackupActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 });

@@ -1,4 +1,4 @@
 node_modules
-
+.env
 # The ota folder should be committed to git
 # !ota/
