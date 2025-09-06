@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.hulimane.labourmanagement.v2",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#6200EE"
@@ -35,7 +35,7 @@
     "web": {
       "favicon": "./assets/icon.png"
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.0.1",
     "extra": {
       "eas": {
         "projectId": "2bd8cfb3-101f-4754-b5aa-84f13f3c2b79"
