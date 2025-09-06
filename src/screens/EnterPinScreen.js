@@ -134,7 +134,7 @@ export default function EnterPinScreen({ navigation }) {
 
   return (
     <LinearGradient
-      colors={['#667eea', '#764ba2']}
+      colors={['#ffffff', '#f5f7fa']}
       style={styles.safeArea}
     >
       <Animated.View 
