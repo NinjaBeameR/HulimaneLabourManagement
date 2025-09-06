@@ -28,19 +28,35 @@ export default function App() {
       
       console.log('Checking for updates from GitHub on app start...');
       
-      // For GitHub-based OTA, directly try to fetch updates
-      const fetchedUpdate = await Updates.fetchUpdateAsync();
+      // First try to check if update is available
+      const checkResult = await Updates.checkForUpdateAsync();
       
-      if (fetchedUpdate.isNew) {
-        console.log('New update downloaded from GitHub, applying immediately...');
-        // Apply the update immediately instead of waiting for next restart
-        try {
-          await Updates.reloadAsync();
-        } catch (reloadError) {
-          console.warn('Failed to apply update automatically:', reloadError);
+      if (checkResult.isAvailable) {
+        console.log('Update available, downloading...');
+        // Download and apply the available update
+        const fetchedUpdate = await Updates.fetchUpdateAsync();
+        if (fetchedUpdate.isNew) {
+          console.log('New update downloaded from GitHub, applying immediately...');
+          try {
+            await Updates.reloadAsync();
+          } catch (reloadError) {
+            console.warn('Failed to apply update automatically:', reloadError);
+          }
         }
       } else {
-        console.log('Connected to GitHub CDN, your app is up to date');
+        console.log('No updates available from GitHub');
+        // Force try to fetch anyway in case check was wrong
+        try {
+          const fetchedUpdate = await Updates.fetchUpdateAsync();
+          if (fetchedUpdate.isNew) {
+            console.log('Found update during force fetch, applying...');
+            await Updates.reloadAsync();
+          } else {
+            console.log('Connected to GitHub CDN, your app is up to date');
+          }
+        } catch (forceFetchError) {
+          console.log('Force fetch also found no updates');
+        }
       }
     } catch (error) {
       console.warn('GitHub OTA auto-update check failed:', error);
