@@ -20,8 +20,11 @@ export default function App() {
 
   const checkForUpdatesOnStart = async () => {
     try {
-      // Only check for updates in production builds
-      if (__DEV__ || !Updates.isEnabled) return;
+      // Check if Updates is available and enabled (but allow dev testing)
+      if (!Updates.isEnabled) {
+        console.log('Updates not enabled in this environment');
+        return;
+      }
       
       console.log('Checking for updates from GitHub on app start...');
       
